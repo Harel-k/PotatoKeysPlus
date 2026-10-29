@@ -48,6 +48,33 @@ Live WPM from your real typing, plus daily stats and a 7-day chart. It only coun
 ### 🖱️ Mouse Jiggler
 **Ctrl + Alt + J** keeps the PC awake and your Teams/Discord status active, with an invisible 1-pixel nudge. It can run only while you're idle, and stop after a set time.
 
+### 🔠 Symbol Lock
+Caps Lock for symbols. **Shift + Caps Lock** makes the number row type `! @ # $ %` without holding Shift. Hold Shift to get the numbers back.
+
+### ✍️ Text Expander & Text Tools
+Type `;mail` and it becomes your email (`{date}`, `{time}`, `{clipboard}` work too). Select text and press **Ctrl + Alt + X** for UPPERCASE, lowercase, Title Case, Sentence case, join lines, sort lines or word count. **Ctrl + Alt + Shift + V** pastes as plain text.
+
+### 📝 Quick Notes
+**Ctrl + Alt + Q** pops up a notepad with several notes that save by themselves (plain `.txt` files).
+
+### 🪟 Window Snapper & Pin Any Window
+**Ctrl + Alt + arrows** snap the window in front to halves (press again for ⅓ and ⅔). **Ctrl + Alt + Home/PgUp/End/PgDn** snap to corners, **Ctrl + Alt + M** moves it to the next screen. **Ctrl + Alt + T** keeps any window on top, and **Ctrl + Alt + [ / ]** makes it see-through.
+
+### 🎯 Grid Jump
+**Ctrl + Alt + K** (or **G** in mouse mode) covers the screen with a lettered grid. Type two letters and the mouse jumps there.
+
+### 📸 Screenshot
+**Ctrl + Print Screen**: drag an area, blur private parts or draw boxes, then copy (Enter) or save (Ctrl + S).
+
+### 🔉 App Volume
+**Ctrl + Alt + = / - / 0** turns only the app in front up, down or mute, plus a mini mixer on the settings page.
+
+### 💾 Settings Backup
+Export everything (settings, hotkeys, snippets, expansions, notes) to one `.potatokeys` file and import it on another PC.
+
+### 🛡️ Safety Lock
+The shield button in the title bar (or the tray menu, or **Ctrl + Alt + Shift + L**) switches every module off at once. It stays on, even after a restart, until you click **Unlock** with your own mouse. Clicks and keys sent by other programs or scripts can't unlock it.
+
 ### 📌 Always there
 - **Pin** keeps the window on top of everything. **Compact** shrinks it to a mini widget.
 - Lives in the **system tray**, so closing the window keeps your hotkeys working.
@@ -97,6 +124,8 @@ Installed copies check the latest release on startup and every 6 hours. They dow
 | `tools/` | Release script, icon/art generator (`make-art.py`) |
 
 ## Notes
+- **AltGr** (Right Alt) never triggers Ctrl+Alt hotkeys, so `@ € { }` still type on European keyboards.
+- Keys from the Windows On-Screen Keyboard and accessibility tools work with every module.
 - Windows doesn't let a normal app control apps running as administrator (Task Manager, installers). Run Potato Keys+ as admin if you need that.
 - Settings live in `%APPDATA%\PotatoKeysPlus\settings.json`. Crashes are logged to `crash.log` in the same folder.
 

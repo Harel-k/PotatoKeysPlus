@@ -88,6 +88,19 @@ internal static class Native
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT_MESSAGE_SOURCE { public int deviceType; public int originId; }
+
+    [DllImport("user32.dll")]
+    static extern bool GetCurrentInputMessageSource(out INPUT_MESSAGE_SOURCE source);
+
+    /// <summary>
+    /// True when the input message being handled right now came from a real mouse, keyboard,
+    /// touch screen or pen. Injected input (SendInput) and UI Automation clicks return false.
+    /// </summary>
+    public static bool CurrentInputIsPhysical() =>
+        GetCurrentInputMessageSource(out var source) && source.originId == 0x1; // IMO_HARDWARE
+
     [DllImport("user32.dll")]
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
@@ -116,6 +129,136 @@ internal static class Native
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool LockWorkStation();
+
+    // ---- Window geometry / monitors ----
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left, Top, Right, Bottom;
+        public readonly int Width => Right - Left;
+        public readonly int Height => Bottom - Top;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+
+    public delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT value, int size);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc proc, IntPtr data);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ShowWindow(IntPtr hWnd, int cmd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsZoomed(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder name, int max);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int max);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint key, byte alpha, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetLayeredWindowAttributes(IntPtr hwnd, out uint key, out byte alpha, out uint flags);
+
+    public const int WS_EX_TOPMOST = 0x8, WS_EX_LAYERED = 0x80000;
+    public const uint LWA_ALPHA = 0x2;
+    public static readonly IntPtr HWND_NOTOPMOST = new(-2);
+    public const uint SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4;
+
+    [DllImport("shcore.dll")]
+    static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
+
+    /// <summary>1.0 at 100% Windows scaling, 1.5 at 150%, …</summary>
+    public static double DpiScale(IntPtr monitor) =>
+        GetDpiForMonitor(monitor, 0, out uint dpi, out _) == 0 ? dpi / 96.0 : 1.0;
+
+    public static MONITORINFO MonitorInfo(IntPtr monitor)
+    {
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        GetMonitorInfo(monitor, ref info);
+        return info;
+    }
+
+    public static List<MONITORINFO> AllMonitors()
+    {
+        var list = new List<MONITORINFO>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr m, IntPtr _, ref RECT _, IntPtr _) => { list.Add(MonitorInfo(m)); return true; }, IntPtr.Zero);
+        return list.OrderBy(m => m.rcMonitor.Left).ThenBy(m => m.rcMonitor.Top).ToList();
+    }
+
+    public static string WindowTitle(IntPtr hwnd)
+    {
+        var sb = new System.Text.StringBuilder(256);
+        GetWindowText(hwnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    /// <summary>The desktop, taskbar and similar shell windows shouldn't be moved or pinned.</summary>
+    public static bool IsShellWindow(IntPtr hwnd)
+    {
+        var sb = new System.Text.StringBuilder(64);
+        GetClassName(hwnd, sb, sb.Capacity);
+        return sb.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "";
+    }
+
+    // ---- Typed characters ----
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetKeyboardLayout(uint threadId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int ToUnicodeEx(uint vk, uint scan, byte[] keyState, System.Text.StringBuilder buffer, int size, uint flags, IntPtr layout);
+
+    [DllImport("user32.dll")]
+    public static extern short GetKeyState(int vk);
+
+    /// <summary>
+    /// The character a key makes in the foreground app's keyboard layout, without disturbing
+    /// dead keys (flag 0x4 keeps the keyboard state untouched).
+    /// </summary>
+    public static string? CharFor(int vk, bool shift, bool altGr)
+    {
+        var state = new byte[256];
+        if (shift) state[0x10] = state[0xA0] = 0x80;
+        if (altGr) state[0x11] = state[0x12] = state[0xA2] = state[0xA5] = 0x80;
+        if ((GetKeyState(0x14) & 1) != 0) state[0x14] = 0x01;
+        var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), out _));
+        var sb = new System.Text.StringBuilder(8);
+        int n = ToUnicodeEx((uint)vk, MapVirtualKey((uint)vk, 0), state, sb, sb.Capacity, 0x4, layout);
+        return n > 0 ? sb.ToString(0, n) : null;
+    }
 
     // ---- Power / idle ----
 

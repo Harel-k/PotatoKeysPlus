@@ -9,6 +9,9 @@ public static class InputSender
 {
     static readonly int InputSize = Marshal.SizeOf<Native.INPUT>();
 
+    /// <summary>Stamped on everything we inject, so our own hook can recognise (and skip) it.</summary>
+    public static readonly IntPtr Signature = new(0x504F5441); // "POTA"
+
     static void Send(params Native.INPUT[] inputs) => Native.SendInput((uint)inputs.Length, inputs, InputSize);
 
     static Native.INPUT Key(int vk, bool up)
@@ -18,23 +21,27 @@ public static class InputSender
         return new Native.INPUT
         {
             type = Native.INPUT_KEYBOARD,
-            U = new Native.InputUnion { ki = new Native.KEYBDINPUT { wVk = (ushort)vk, wScan = (ushort)Native.MapVirtualKey((uint)vk, 0), dwFlags = flags } },
+            U = new Native.InputUnion { ki = new Native.KEYBDINPUT { wVk = (ushort)vk, wScan = (ushort)Native.MapVirtualKey((uint)vk, 0), dwFlags = flags, dwExtraInfo = Signature } },
         };
     }
 
     static Native.INPUT Unicode(char c, bool up) => new()
     {
         type = Native.INPUT_KEYBOARD,
-        U = new Native.InputUnion { ki = new Native.KEYBDINPUT { wScan = c, dwFlags = Native.KEYEVENTF_UNICODE | (up ? Native.KEYEVENTF_KEYUP : 0) } },
+        U = new Native.InputUnion { ki = new Native.KEYBDINPUT { wScan = c, dwFlags = Native.KEYEVENTF_UNICODE | (up ? Native.KEYEVENTF_KEYUP : 0), dwExtraInfo = Signature } },
     };
 
     static Native.INPUT Mouse(uint flags, int data = 0) => new()
     {
         type = Native.INPUT_MOUSE,
-        U = new Native.InputUnion { mi = new Native.MOUSEINPUT { dwFlags = flags, mouseData = unchecked((uint)data) } },
+        U = new Native.InputUnion { mi = new Native.MOUSEINPUT { dwFlags = flags, mouseData = unchecked((uint)data), dwExtraInfo = Signature } },
     };
 
     public static void KeyTap(int vk) => Send(Key(vk, false), Key(vk, true));
+
+    public static void KeyDown(int vk) => Send(Key(vk, false));
+
+    public static void KeyUp(int vk) => Send(Key(vk, true));
 
     /// <summary>Presses a full combo, e.g. Ctrl + Shift + Esc.</summary>
     public static void Combo(KeyBind bind)
@@ -86,7 +93,7 @@ public static class InputSender
     public static void MouseMove(int dx, int dy) => Send(new Native.INPUT
     {
         type = Native.INPUT_MOUSE,
-        U = new Native.InputUnion { mi = new Native.MOUSEINPUT { dx = dx, dy = dy, dwFlags = 0x0001 } },
+        U = new Native.InputUnion { mi = new Native.MOUSEINPUT { dx = dx, dy = dy, dwFlags = 0x0001, dwExtraInfo = Signature } },
     });
 
     public static void Wheel(int delta) => Send(Mouse(Native.MOUSEEVENTF_WHEEL, delta));

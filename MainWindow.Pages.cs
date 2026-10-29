@@ -298,61 +298,6 @@ public partial class MainWindow
         }
     }
 
-    // ---------- Ideas ----------
-
-    FrameworkElement BuildIdeasPage()
-    {
-        var page = new StackPanel();
-        page.Children.Add(PageHeader("More ideas",
-            "Modules that could come next. These aren't built yet. Pick your favourites and they can become real modules.", null));
-
-        (string Name, string Text)[] ideas =
-        [
-            ("Mic Mute Key", "One key mutes your microphone everywhere (Discord, Teams, games), with an on-screen mic icon so you always know."),
-            ("Audio Switcher", "One hotkey flips between headphones and speakers, with no digging in the sound settings."),
-            ("App Volume Keys", "Turn just the app in front up or down. Quiet the game without muting Discord."),
-            ("Pin Any Window", "A hotkey that keeps any window on top, like a guide or a video while you play."),
-            ("Window Snapper", "Move and resize windows to halves, thirds and corners with keys."),
-            ("Clipboard History", "The last 50 things you copied. Search and paste any of them with a hotkey."),
-            ("Text Tools", "Select text, press a key: UPPERCASE, lowercase, Title Case, or paste as plain text."),
-            ("Text Expander", "Type ;mail and it becomes your full email. Type ;addr and get your address."),
-            ("Grid Jump", "The screen turns into a lettered grid. Type two letters and the mouse jumps there, much faster than arrows."),
-            ("Key Remapper", "Swap or switch off any key: Caps Lock to Esc, or fix a broken key."),
-            ("Caps Lock Pop-up", "Shows on screen when Caps Lock / Num Lock turns on, so you stop typing in CAPS by accident."),
-            ("Keyboard Lock", "Locks the keyboard for cleaning (or the cat) until you type a secret combo."),
-            ("Screenshot Tool", "Grab a region with a hotkey, then copy it, save it or blur parts before sharing."),
-            ("Quick Notes", "A hotkey pops up a notepad that saves by itself. Hide it with the same key."),
-            ("Focus Timer", "A Pomodoro timer that blocks distracting apps and sites while it runs."),
-            ("Macro Recorder", "Record keys and clicks once, replay them with one hotkey."),
-            ("App Profiles", "Different keybinds per app: one setup for Minecraft, another for Chrome."),
-            ("Keystroke Overlay", "Shows the keys you press on screen, great for tutorials and recordings."),
-            ("Settings Backup", "Export your hotkeys and settings to a file, or sync them to another PC."),
-        ];
-
-        var wrap = new WrapPanel();
-        foreach (var (name, text) in ideas)
-        {
-            var body = new StackPanel();
-            var head = new StackPanel { Orientation = Orientation.Horizontal };
-            head.Children.Add(Label(name, 14.5, bold: true));
-            var soon = new Border
-            {
-                Background = Res("AccentDimBrush"), CornerRadius = new CornerRadius(8), Padding = new Thickness(7, 1, 7, 2),
-                Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
-                Child = new TextBlock { Text = "idea", FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = Res("AccentBrush") },
-            };
-            head.Children.Add(soon);
-            body.Children.Add(head);
-            var desc = Label(text, 12.5, muted: true);
-            desc.Margin = new Thickness(0, 6, 0, 0);
-            body.Children.Add(desc);
-
-            wrap.Children.Add(new Border { Style = St("Card"), Width = 270, MinHeight = 112, Margin = new Thickness(0, 0, 14, 14), Child = body });
-        }
-        page.Children.Add(wrap);
-        return page;
-    }
-
     // ---------- Building blocks ----------
 
     Brush Res(string key) => (Brush)FindResource(key);
@@ -459,8 +404,21 @@ public partial class MainWindow
                 button.Tag = null;
                 if (bind != null)
                 {
+                    var previous = get();
                     set(bind);
                     Changed();
+                    // Ask about clashes after the hook callback returns (a dialog inside it would stall the keyboard).
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        var clash = AllKeyBinds().FirstOrDefault(b => !ReferenceEquals(b.Bind, bind) && b.Bind.IsSet && b.Bind.Vk == bind.Vk && b.Bind.Mods == bind.Mods);
+                        if (clash.Name == null) return;
+                        var answer = MessageBox.Show(this, $"{bind} is already used by \"{clash.Name}\".\n\nUse it here anyway? Only one of them will work.",
+                            "Potato Keys+", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                        if (answer == MessageBoxResult.Yes) return;
+                        set(previous);
+                        button.Content = get().ToString();
+                        Changed();
+                    });
                 }
                 button.Content = get().ToString();
             });

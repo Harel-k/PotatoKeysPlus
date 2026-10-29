@@ -15,7 +15,7 @@ namespace PotatoKeysPlus;
 public partial class MainWindow : Window
 {
     /// <summary>A sidebar entry. Live = "doing something right now" (gold dot).</summary>
-    sealed record ModuleInfo(string Key, string Glyph, string Name, Func<bool>? Enabled, Func<bool>? Live, Func<FrameworkElement> Build);
+    sealed record ModuleInfo(string Group, string Key, string Glyph, string Name, Func<bool>? Enabled, Func<bool>? Live, Func<FrameworkElement> Build);
 
     readonly Engine _e;
     readonly IndicatorWindow _indicator = new();
@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     readonly List<Action> _refreshers = [];
     readonly List<ModuleInfo> _modules;
     readonly LauncherWindow _launcherWindow;
+    readonly ScreenshotWindow _screenshotWindow;
+    readonly QuickNotesWindow _notesWindow;
     bool _syncing;
     bool _quitting;
     TrayIcon? _tray;
@@ -42,22 +44,36 @@ public partial class MainWindow : Window
 
         _modules =
         [
-            new("mouse", "", "Keyboard Mouse", () => S.Mouse.Enabled, () => _e.Mouse.Active, BuildMousePage),
-            new("hotkeys", "", "Hotkeys", () => S.Hotkeys.Enabled, null, BuildHotkeysPage),
-            new("launcher", "", "Quick Launcher", () => S.Launcher.Enabled, null, BuildLauncherPage),
-            new("snippets", "", "Snippet Wheel", () => S.Snippets.Enabled, null, BuildSnippetsPage),
-            new("gamer", "", "Gamer Mode", () => S.Gamer.Enabled, () => _e.Gamer.Active, BuildGamerPage),
-            new("panic", "", "Panic Key", () => S.Panic.Enabled, () => _e.Panic.Panicked, BuildPanicPage),
-            new("sounds", "", "Key Sounds", () => S.Sounds.Enabled, null, BuildSoundsPage),
-            new("typing", "", "Typing Trainer", () => S.Typing.Enabled, null, BuildTypingPage),
-            new("jiggler", "", "Mouse Jiggler", () => S.Jiggler.Enabled, () => _e.Jiggler.Running, BuildJigglerPage),
-            new("ideas", "", "More ideas", null, null, BuildIdeasPage),
-            new("about", "", "Settings & updates", null, null, BuildAboutPage),
+            new("Mouse", "mouse", "", "Keyboard Mouse", () => S.Mouse.Enabled, () => _e.Mouse.Active, BuildMousePage),
+            new("Mouse", "gridjump", "", "Grid Jump", () => S.GridJump.Enabled, null, BuildGridJumpPage),
+            new("Keyboard", "hotkeys", "", "Hotkeys", () => S.Hotkeys.Enabled, null, BuildHotkeysPage),
+            new("Keyboard", "snippets", "", "Snippet Wheel", () => S.Snippets.Enabled, null, BuildSnippetsPage),
+            new("Keyboard", "symbollock", "", "Symbol Lock", () => S.SymbolLock.Enabled, () => _e.SymbolLock.Active, BuildSymbolLockPage),
+            new("Keyboard", "gamer", "", "Gamer Mode", () => S.Gamer.Enabled, () => _e.Gamer.Active, BuildGamerPage),
+            new("Keyboard", "panic", "", "Panic Key", () => S.Panic.Enabled, () => _e.Panic.Panicked, BuildPanicPage),
+            new("Text", "expander", "", "Text Expander", () => S.Expander.Enabled, null, BuildExpanderPage),
+            new("Text", "texttools", "", "Text Tools", () => S.TextTools.Enabled, null, BuildTextToolsPage),
+            new("Text", "notes", "", "Quick Notes", () => S.Notes.Enabled, null, BuildNotesPage),
+            new("Text", "typing", "", "Typing Trainer", () => S.Typing.Enabled, null, BuildTypingPage),
+            new("Windows & screen", "launcher", "", "Quick Launcher", () => S.Launcher.Enabled, null, BuildLauncherPage),
+            new("Windows & screen", "snapper", "", "Window Snapper", () => S.Snapper.Enabled, null, BuildSnapperPage),
+            new("Windows & screen", "pin", "", "Pin Any Window", () => S.WindowPin.Enabled, () => _e.WindowPin.Pinned.Count > 0, BuildPinPage),
+            new("Windows & screen", "screenshot", "", "Screenshot", () => S.Screenshot.Enabled, null, BuildScreenshotPage),
+            new("Sound", "appvolume", "", "App Volume", () => S.AppVolume.Enabled, null, BuildAppVolumePage),
+            new("Sound", "sounds", "", "Key Sounds", () => S.Sounds.Enabled, null, BuildSoundsPage),
+            new("More", "jiggler", "", "Mouse Jiggler", () => S.Jiggler.Enabled, () => _e.Jiggler.Running, BuildJigglerPage),
+            new("More", "about", "", "Settings & updates", null, null, BuildAboutPage),
         ];
 
         _launcherWindow = new LauncherWindow(_e.Launcher);
         _e.Launcher.OpenRequested += _launcherWindow.Open;
         _e.Snippets.View = new SnippetWheelWindow(_e.Snippets);
+        _e.GridJump.View = new GridJumpWindow();
+        _e.TextTools.View = new TextToolsMenuWindow(_e.TextTools);
+        _screenshotWindow = new ScreenshotWindow(S.Screenshot, Toast);
+        _e.Screenshot.OpenRequested += _screenshotWindow.Open;
+        _notesWindow = new QuickNotesWindow(S.Notes, _e.SaveSoon);
+        _e.Notes.ToggleRequested += _notesWindow.Toggle;
         AddLauncherCommands();
 
         BuildModuleList();
@@ -69,18 +85,34 @@ public partial class MainWindow : Window
         _e.Gamer.Changed += () => { RefreshStatus(); Toast(_e.Gamer.Active ? "Gamer Mode on" : "Gamer Mode off"); };
         _e.Jiggler.Changed += RefreshStatus;
         _e.Panic.Changed += RefreshStatus;
+        _e.WindowPin.Changed += RefreshStatus;
+        _e.SymbolLock.Changed += () => { RefreshStatus(); if (!S.SymbolLock.ShowIndicator) Toast(_e.SymbolLock.Active ? "Symbol Lock on" : "Symbol Lock off"); };
+        _e.Toast += Toast;
         _e.PinToggleRequested += () => SetPinned(!S.Pinned);
+        _e.SafetyLockChanged += () =>
+        {
+            RefreshStatus();
+            Toast(_e.SafetyLocked ? "Safety Lock on: every module is off" : "Safety Lock off: modules are back on");
+        };
         _e.Error += message => MessageBox.Show(this, message, "Potato Keys+", MessageBoxButton.OK, MessageBoxImage.Warning);
 
         _tray = new TrayIcon(
             open: ShowFromTray,
             checkUpdates: () => { ShowFromTray(); SelectModule("about"); _ = CheckForUpdatesAsync(userInitiated: true); },
             quit: QuitApp);
-        _tray.AddAction("Quick Launcher", _launcherWindow.Open);
-        _tray.AddToggle("Mouse mode", () => _e.Mouse.Active, () => _e.Mouse.SetActive(!_e.Mouse.Active));
-        _tray.AddToggle("Gamer Mode", () => _e.Gamer.Active, () => _e.Gamer.SetActive(!_e.Gamer.Active));
-        _tray.AddToggle("Mouse Jiggler", () => _e.Jiggler.Running, () => _e.Jiggler.SetRunning(!_e.Jiggler.Running));
-        _tray.AddToggle("Key Sounds", () => S.Sounds.Enabled, () => { S.Sounds.Enabled = !S.Sounds.Enabled; _e.Sounds.Apply(); Changed(); });
+        _tray.AddToggle("Safety Lock (all modules off)", () => _e.SafetyLocked, () =>
+        {
+            if (!_e.SafetyLocked) _e.SetSafetyLock(true);
+            else { ShowFromTray(); Toast("Click Unlock in the window to switch modules back on"); }
+        });
+        _tray.AddAction("Quick Launcher", Guard(_launcherWindow.Open));
+        _tray.AddAction("Quick Notes", Guard(_notesWindow.Toggle));
+        _tray.AddAction("Take a screenshot", Guard(_screenshotWindow.Open));
+        _tray.AddToggle("Mouse mode", () => _e.Mouse.Active, Guard(() => _e.Mouse.SetActive(!_e.Mouse.Active)));
+        _tray.AddToggle("Symbol Lock", () => _e.SymbolLock.Active, Guard(() => _e.SymbolLock.SetActive(!_e.SymbolLock.Active)));
+        _tray.AddToggle("Gamer Mode", () => _e.Gamer.Active, Guard(() => _e.Gamer.SetActive(!_e.Gamer.Active)));
+        _tray.AddToggle("Mouse Jiggler", () => _e.Jiggler.Running, Guard(() => _e.Jiggler.SetRunning(!_e.Jiggler.Running)));
+        _tray.AddToggle("Key Sounds", () => S.Sounds.Enabled, Guard(() => { S.Sounds.Enabled = !S.Sounds.Enabled; _e.Sounds.Apply(); Changed(); }));
         _tray.AddToggle("Pin window on top", () => S.Pinned, () => SetPinned(!S.Pinned));
 
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); RefreshIndicator(); };
@@ -92,6 +124,7 @@ public partial class MainWindow : Window
         {
             _indicator.Close();
             _launcherWindow.Close();
+            if (!_e.SkipSaveOnExit) _notesWindow.Flush();
             _tray?.Dispose();
         };
 
@@ -109,6 +142,9 @@ public partial class MainWindow : Window
         c.Add(("Key Sounds", "Potato Keys+ · keyboard click sounds", () => { S.Sounds.Enabled = !S.Sounds.Enabled; _e.Sounds.Apply(); Changed(); }));
         c.Add(("Typing test", "Potato Keys+ · check your speed", () => { ShowFromTray(); SelectModule("typing"); }));
         c.Add(("Potato Keys+ settings", "Open the Potato Keys+ window", () => { ShowFromTray(); SelectModule("about"); }));
+        c.Add(("Quick Notes", "Potato Keys+ · open your notes", _notesWindow.Toggle));
+        c.Add(("Screenshot", "Potato Keys+ · grab part of the screen", _screenshotWindow.Open));
+        c.Add(("Symbol Lock", "Potato Keys+ · number row types symbols", () => _e.SymbolLock.SetActive(!_e.SymbolLock.Active)));
         c.Add(("Lock PC", "Windows · lock the computer", () => Native.LockWorkStation()));
     }
 
@@ -145,8 +181,19 @@ public partial class MainWindow : Window
 
     void BuildModuleList()
     {
+        string? group = null;
         foreach (var m in _modules)
         {
+            if (m.Group != group)
+            {
+                group = m.Group;
+                ModuleList.Items.Add(new ListBoxItem
+                {
+                    Content = group.ToUpperInvariant(), IsEnabled = false, Focusable = false, IsHitTestVisible = false,
+                    FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = Res("MutedBrush"),
+                    Padding = new Thickness(12, ModuleList.Items.Count == 0 ? 0 : 12, 0, 3), Style = St("ModuleItem"),
+                });
+            }
             ModuleList.Items.Add(ModuleItem(m.Key, m.Glyph, m.Name, out var dot));
             _dots[m.Key] = dot;
             if (m.Enabled == null) dot.Visibility = Visibility.Collapsed;
@@ -170,8 +217,8 @@ public partial class MainWindow : Window
     void SelectModule(string key)
     {
         foreach (ListBoxItem item in ModuleList.Items)
-            if ((string)item.Tag == key) { ModuleList.SelectedItem = item; return; }
-        ModuleList.SelectedIndex = 0;
+            if (item.Tag as string == key) { ModuleList.SelectedItem = item; return; }
+        ModuleList.SelectedIndex = 1;
     }
 
     void ModuleList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -254,16 +301,19 @@ public partial class MainWindow : Window
         {
             if (m.Enabled == null) continue;
             bool enabled = m.Enabled(), live = m.Live?.Invoke() == true;
-            _dots[m.Key].Fill = Res(!enabled ? "RaisedBrush" : live ? "AccentBrush" : "GoodBrush");
+            _dots[m.Key].Fill = Res(!enabled || _e.SafetyLocked ? "RaisedBrush" : live ? "AccentBrush" : "GoodBrush");
         }
 
         var states = new List<string>();
+        if (_e.SafetyLocked) states.Add("SAFETY LOCK");
         if (_e.Mouse.Active) states.Add("MOUSE MODE");
         if (_e.Gamer.Active) states.Add("GAMER MODE");
         if (_e.Jiggler.Running) states.Add("JIGGLING");
+        if (_e.SymbolLock.Active) states.Add("SYMBOL LOCK");
         StatusPillText.Text = string.Join("  ·  ", states);
         MouseModePill.Visibility = states.Count > 0 && !S.Compact ? Visibility.Visible : Visibility.Collapsed;
 
+        RefreshSafety();
         RefreshIndicator();
         _tray?.Refresh(states.Count > 0 ? "Potato Keys+ (" + string.Join(", ", states).ToLowerInvariant() + ")" : "Potato Keys+");
         RefreshUpdateBanner();
@@ -271,14 +321,17 @@ public partial class MainWindow : Window
 
     void RefreshIndicator()
     {
-        if (_e.Mouse.Active && S.Mouse.ShowIndicator) _indicator.ShowText($"Mouse mode on  ·  {S.Mouse.Toggle} to stop");
-        else if (!_toastTimer.IsEnabled && _indicator.IsVisible) _indicator.Hide();
+        if (_toastTimer.IsEnabled) return; // a toast is showing; it calls back here when it's done
+        var parts = new List<string>();
+        if (_e.Mouse.Active && S.Mouse.ShowIndicator) parts.Add($"Mouse mode on  ·  {S.Mouse.Toggle} to stop");
+        if (_e.SymbolLock.Active && S.SymbolLock.ShowIndicator) parts.Add("Symbol Lock on  ·  1 → !");
+        if (parts.Count > 0) _indicator.ShowText(string.Join("     ", parts));
+        else if (_indicator.IsVisible) _indicator.Hide();
     }
 
     /// <summary>Brief on-screen message, e.g. when a hotkey switches Gamer Mode.</summary>
     void Toast(string text)
     {
-        if (_e.Mouse.Active) return;
         _indicator.ShowText(text);
         _toastTimer.Stop();
         _toastTimer.Start();
@@ -297,6 +350,42 @@ public partial class MainWindow : Window
         bool pinned = PinButton.IsChecked == true;
         if (pinned != S.Pinned) SetPinned(pinned);
     }
+
+    // ---------- Safety Lock ----------
+
+    void SafetyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_e.SafetyLocked)
+        {
+            _e.SetSafetyLock(true);
+            return;
+        }
+        // Only a real click (or a real key press on the focused button) unlocks. Clicks sent by
+        // other programs, scripts or UI Automation are refused.
+        if (Native.CurrentInputIsPhysical()) _e.SetSafetyLock(false);
+        else Toast("Unlock needs a real click with your own mouse");
+    }
+
+    void RefreshSafety()
+    {
+        bool locked = _e.SafetyLocked;
+        SafetyBanner.Visibility = locked ? Visibility.Visible : Visibility.Collapsed;
+        SafetyButton.Content = locked ? "" : "";
+        if (locked) SafetyButton.Foreground = Res("DangerBrush");
+        else SafetyButton.ClearValue(ForegroundProperty);
+        SafetyButton.ToolTip = locked
+            ? "Safety Lock is on: every module is off. Click with your mouse to unlock."
+            : $"Safety Lock: switch every module off ({S.SafetyKey})";
+        PageHost.IsEnabled = !locked;
+        CompactPanel.IsEnabled = !locked;
+    }
+
+    /// <summary>Tray actions do nothing while the Safety Lock is on (they open the window instead).</summary>
+    Action Guard(Action action) => () =>
+    {
+        if (!_e.SafetyLocked) action();
+        else { ShowFromTray(); Toast("Safety Lock is on. Click Unlock first"); }
+    };
 
     void CompactButton_Click(object sender, RoutedEventArgs e) => SetCompact(!S.Compact);
 

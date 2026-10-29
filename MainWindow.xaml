@@ -14,6 +14,7 @@
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="46"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
@@ -44,6 +45,7 @@
                 VerticalAlignment="Center" Margin="0,0,10,0">
           <TextBlock x:Name="StatusPillText" Text="MOUSE MODE ON" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
         </Border>
+        <Button x:Name="SafetyButton" AutomationProperties.Name="Safety Lock" Style="{StaticResource TitleButton}" Content="&#xEA18;" Click="SafetyButton_Click"/>
         <Button x:Name="CompactButton" AutomationProperties.Name="Compact widget" Style="{StaticResource TitleButton}" Content="&#xE73F;" ToolTip="Shrink to a mini widget" Click="CompactButton_Click"/>
         <ToggleButton x:Name="PinButton" AutomationProperties.Name="Pin window" Style="{StaticResource TitleToggle}" Content="&#xE718;" ToolTip="Pin on top of every window" Checked="PinButton_Changed" Unchecked="PinButton_Changed"/>
         <Button Style="{StaticResource TitleButton}" Content="&#xE921;" ToolTip="Minimize" Click="Minimize_Click"/>
@@ -51,8 +53,22 @@
       </StackPanel>
     </Grid>
 
+    <!-- Shown while the Safety Lock is on -->
+    <Border x:Name="SafetyBanner" Grid.Row="1" Visibility="Collapsed" Background="#33E5534B"
+            BorderBrush="{StaticResource DangerBrush}" BorderThickness="0,1,0,1" Padding="20,10">
+      <DockPanel>
+        <Button x:Name="UnlockButton" DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Padding="14,6"
+                Content="Unlock" AutomationProperties.Name="Unlock modules" Click="SafetyButton_Click"/>
+        <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+          <TextBlock Text="Safety Lock is on: every module is off" FontWeight="SemiBold" Foreground="#FF8A84"/>
+          <TextBlock Text="Nothing in Potato Keys+ reacts to keys. Click Unlock with your own mouse to switch the modules back on. Programs can't press it for you."
+                     Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
     <!-- Full view: modules sidebar + page -->
-    <Grid x:Name="FullView" Grid.Row="1">
+    <Grid x:Name="FullView" Grid.Row="2">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="232"/>
         <ColumnDefinition Width="*"/>
@@ -61,7 +77,6 @@
       <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,1,0">
         <DockPanel Margin="10,16,10,14">
           <TextBlock x:Name="VersionText" DockPanel.Dock="Bottom" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="10,0"/>
-          <TextBlock DockPanel.Dock="Top" Text="MODULES" Foreground="{StaticResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="10,0,0,8"/>
           <ListBox x:Name="ModuleList" Background="Transparent" BorderThickness="0" SelectionChanged="ModuleList_SelectionChanged"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
         </DockPanel>
@@ -86,7 +101,7 @@
     </Grid>
 
     <!-- Compact widget view -->
-    <Border x:Name="CompactView" Grid.Row="1" Visibility="Collapsed" Padding="14,12,14,14"
+    <Border x:Name="CompactView" Grid.Row="2" Visibility="Collapsed" Padding="14,12,14,14"
             BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,0,0">
       <StackPanel x:Name="CompactPanel"/>
     </Border>

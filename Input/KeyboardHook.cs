@@ -40,11 +40,20 @@ public sealed class KeyboardHook : IDisposable
     {
         get
         {
+            // AltGr (Right Alt) arrives as Left Ctrl + Right Alt. On many layouts it types symbols
+            // like @ € { }, so it must never look like Ctrl+Alt or it would trigger hotkeys.
+            bool altGr = _down.Contains(0xA5);
             var mods = Mods.None;
-            foreach (var vk in _down) mods |= KeyNames.ModFor(vk);
+            foreach (var vk in _down)
+            {
+                if (altGr && vk is 0xA5 or 0xA2) continue;
+                mods |= KeyNames.ModFor(vk);
+            }
             return mods;
         }
     }
+
+    public bool IsDown(int vk) => _down.Contains(vk);
 
     /// <summary>
     /// The next key press is captured instead of being handled. With <paramref name="combo"/>
@@ -69,8 +78,10 @@ public sealed class KeyboardHook : IDisposable
         if (nCode >= 0)
         {
             var data = Marshal.PtrToStructure<Native.KBDLLHOOKSTRUCT>(lParam);
-            // Ignore injected input (ours and other tools') so we never react to ourselves.
-            if ((data.flags & Native.LLKHF_INJECTED) == 0)
+            // Skip only our own injected keys, so we never react to ourselves. Keys from other tools
+            // (the Windows On-Screen Keyboard, accessibility apps, remappers) still work with Potato Keys+.
+            bool ours = (data.flags & Native.LLKHF_INJECTED) != 0 && data.dwExtraInfo == InputSender.Signature;
+            if (!ours)
             {
                 int msg = (int)wParam;
                 int vk = (int)data.vkCode;

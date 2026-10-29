@@ -15,7 +15,11 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        _singleInstance = new Mutex(true, InstanceName, out bool firstInstance);
+        // After restoring a backup the old copy is still shutting down, so wait for it a moment.
+        _singleInstance = new Mutex(false, InstanceName);
+        bool firstInstance;
+        try { firstInstance = _singleInstance.WaitOne(e.Args.Contains("--restarted") ? 8000 : 0); }
+        catch (AbandonedMutexException) { firstInstance = true; }
         if (!firstInstance)
         {
             // Already running (maybe hidden in the tray): ask it to show itself and quit.

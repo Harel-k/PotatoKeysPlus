@@ -14,6 +14,7 @@ public sealed class GamerModeModule : IDisposable
     readonly GamerSettings _s;
     readonly DispatcherTimer _watch;
     bool _manual;
+    bool _suspended;
     string? _autoApp;
     string? _dismissedApp;
     bool _popupsChanged;
@@ -30,7 +31,16 @@ public sealed class GamerModeModule : IDisposable
         _watch.Start();
     }
 
-    public bool Active => _s.Enabled && (_manual || _autoApp != null);
+    public bool Active => _s.Enabled && !_suspended && (_manual || _autoApp != null);
+
+    /// <summary>While suspended (Safety Lock) Gamer Mode stays off and the Windows shortcuts are restored.</summary>
+    public void SetSuspended(bool suspended)
+    {
+        if (suspended == _suspended) return;
+        _suspended = suspended;
+        if (suspended) _manual = false;
+        Apply();
+    }
 
     /// <summary>The game that switched Gamer Mode on automatically, if any.</summary>
     public string? AutoApp => _autoApp;

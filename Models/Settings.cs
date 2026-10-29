@@ -44,6 +44,10 @@ public sealed class AppSettings
     public bool CloseToTray { get; set; } = true;
     public bool TrayHintShown { get; set; }
 
+    /// <summary>Safety Lock: every module is off until a real (physical) click on Unlock.</summary>
+    public bool SafetyLock { get; set; }
+    public KeyBind SafetyKey { get; set; } = new(0x4C, Mods.Ctrl | Mods.Alt | Mods.Shift);   // Ctrl + Alt + Shift + L
+
     public MouseSettings Mouse { get; set; } = new();
     public HotkeySettings Hotkeys { get; set; } = new();
     public LauncherSettings Launcher { get; set; } = new();
@@ -53,6 +57,15 @@ public sealed class AppSettings
     public KeySoundSettings Sounds { get; set; } = new();
     public TypingSettings Typing { get; set; } = new();
     public JigglerSettings Jiggler { get; set; } = new();
+    public AppVolumeSettings AppVolume { get; set; } = new();
+    public WindowPinSettings WindowPin { get; set; } = new();
+    public TextToolsSettings TextTools { get; set; } = new();
+    public ExpanderSettings Expander { get; set; } = new();
+    public SnapperSettings Snapper { get; set; } = new();
+    public GridJumpSettings GridJump { get; set; } = new();
+    public SymbolLockSettings SymbolLock { get; set; } = new();
+    public ScreenshotSettings Screenshot { get; set; } = new();
+    public NotesSettings Notes { get; set; } = new();
 }
 
 public sealed class MouseSettings

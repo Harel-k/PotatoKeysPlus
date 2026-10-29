@@ -174,6 +174,13 @@ public partial class MainWindow
             notes.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         });
 
+        // Safety Lock
+        var safety = new StackPanel();
+        safety.Children.Add(KeyRow("Switch the Safety Lock on", () => S.SafetyKey, v => S.SafetyKey = v, combo: true));
+        page.Children.Add(Card("Safety Lock",
+            "Switches every module off at once, from the shield button in the title bar, the tray menu or this key. " +
+            "It stays on (even after a restart) until you click Unlock with your own mouse. Other programs can't unlock it.", safety));
+
         // App behaviour
         var app = new StackPanel();
         app.Children.Add(Switch("Start Potato Keys+ when Windows starts", () => Startup.IsEnabled, v =>
@@ -185,6 +192,55 @@ public partial class MainWindow
         tray.Margin = new Thickness(0, 12, 0, 0);
         app.Children.Add(tray);
         page.Children.Add(Card("App", "With the tray on, your hotkeys and the keyboard mouse keep working when the window is closed.", app));
+
+        // Backup
+        var export = new Button { Style = St("AccentButton"), Content = "Export my settings…", Margin = new Thickness(0, 0, 10, 0) };
+        export.Click += (_, _) =>
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Save a Potato Keys+ backup",
+                FileName = $"Potato Keys+ backup {DateTime.Now:yyyy-MM-dd}{Backup.Extension}",
+                Filter = $"Potato Keys+ backup|*{Backup.Extension}",
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                _notesWindow.Flush();
+                Backup.Export(S, QuickNotesWindow.NotesFolder, dialog.FileName);
+                Toast("Backup saved");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Couldn't save the backup: {ex.Message}", "Potato Keys+");
+            }
+        };
+        var import = new Button { Style = St("GhostButton"), Content = "Import a backup…" };
+        import.Click += (_, _) =>
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Pick a Potato Keys+ backup", Filter = $"Potato Keys+ backup|*{Backup.Extension}|All files|*.*" };
+            if (dialog.ShowDialog(this) != true) return;
+            try
+            {
+                var summary = Backup.Describe(dialog.FileName);
+                if (MessageBox.Show(this, $"This backup has {summary}.\n\nReplace ALL your current settings and notes with it? Potato Keys+ will restart.",
+                        "Import backup", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                Backup.Restore(dialog.FileName, QuickNotesWindow.NotesFolder);
+                _e.SkipSaveOnExit = true;
+                Process.Start(new ProcessStartInfo(Environment.ProcessPath!, "--restarted") { UseShellExecute = false });
+                QuitApp();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Potato Keys+");
+            }
+        };
+        var backupButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        backupButtons.Children.Add(export);
+        backupButtons.Children.Add(import);
+        page.Children.Add(Card("Backup",
+            "Save all your settings, hotkeys, wheel items, text expansions and notes to one file. Restore it after reinstalling, or copy your setup to another PC.",
+            backupButtons));
 
         // About
         var links = new WrapPanel();
