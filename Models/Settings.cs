@@ -17,6 +17,9 @@ public sealed class KeyBind
 
     [JsonIgnore] public bool IsSet => Vk != 0;
 
+    /// <summary>Exact match of key and modifiers (for combo triggers).</summary>
+    public bool Matches(int vk, Mods mods) => IsSet && Vk == vk && Mods == mods;
+
     public override string ToString() => KeyNames.Describe(this);
 }
 
@@ -43,6 +46,13 @@ public sealed class AppSettings
 
     public MouseSettings Mouse { get; set; } = new();
     public HotkeySettings Hotkeys { get; set; } = new();
+    public LauncherSettings Launcher { get; set; } = new();
+    public SnippetSettings Snippets { get; set; } = new();
+    public GamerSettings Gamer { get; set; } = new();
+    public PanicSettings Panic { get; set; } = new();
+    public KeySoundSettings Sounds { get; set; } = new();
+    public TypingSettings Typing { get; set; } = new();
+    public JigglerSettings Jiggler { get; set; } = new();
 }
 
 public sealed class MouseSettings

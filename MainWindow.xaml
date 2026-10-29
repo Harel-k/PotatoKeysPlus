@@ -42,7 +42,7 @@
         <Border x:Name="MouseModePill" Visibility="Collapsed" Background="{StaticResource AccentDimBrush}"
                 BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="11" Padding="10,3"
                 VerticalAlignment="Center" Margin="0,0,10,0">
-          <TextBlock Text="MOUSE MODE ON" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+          <TextBlock x:Name="StatusPillText" Text="MOUSE MODE ON" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
         </Border>
         <Button x:Name="CompactButton" AutomationProperties.Name="Compact widget" Style="{StaticResource TitleButton}" Content="&#xE73F;" ToolTip="Shrink to a mini widget" Click="CompactButton_Click"/>
         <ToggleButton x:Name="PinButton" AutomationProperties.Name="Pin window" Style="{StaticResource TitleToggle}" Content="&#xE718;" ToolTip="Pin on top of every window" Checked="PinButton_Changed" Unchecked="PinButton_Changed"/>

@@ -82,4 +82,112 @@ internal static class Native
 
     [DllImport("winmm.dll")]
     public static extern uint timeEndPeriod(uint uPeriod);
+
+    // ---- Windows / focus ----
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, [MarshalAs(UnmanagedType.Bool)] bool fAttach);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    public static readonly IntPtr HWND_TOPMOST = new(-1);
+    public const uint SWP_NOSIZE = 0x1, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool LockWorkStation();
+
+    // ---- Power / idle ----
+
+    public const uint ES_CONTINUOUS = 0x80000000, ES_SYSTEM_REQUIRED = 0x1, ES_DISPLAY_REQUIRED = 0x2;
+
+    [DllImport("kernel32.dll")]
+    public static extern uint SetThreadExecutionState(uint flags);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
+
+    public static double IdleSeconds()
+    {
+        var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        return GetLastInputInfo(ref info) ? unchecked((uint)Environment.TickCount - info.dwTime) / 1000.0 : 0;
+    }
+
+    // ---- Accessibility shortcut popups (Sticky / Filter / Toggle keys) ----
+
+    public const uint SPI_GETFILTERKEYS = 0x0032, SPI_SETFILTERKEYS = 0x0033;
+    public const uint SPI_GETTOGGLEKEYS = 0x0034, SPI_SETTOGGLEKEYS = 0x0035;
+    public const uint SPI_GETSTICKYKEYS = 0x003A, SPI_SETSTICKYKEYS = 0x003B;
+    public const uint HOTKEY_ACTIVE = 0x4, FEATURE_ON = 0x1;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SKEYS { public uint cbSize; public uint dwFlags; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct FILTERKEYS { public uint cbSize; public uint dwFlags; public uint iWaitMSec; public uint iDelayMSec; public uint iRepeatMSec; public uint iBounceMSec; }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint action, uint param, ref SKEYS value, uint winIni);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint action, uint param, ref FILTERKEYS value, uint winIni);
+
+    /// <summary>
+    /// Brings a window to the front even when Windows' focus-stealing rules would block it
+    /// (we're often called from a global hotkey while another app is in front).
+    /// </summary>
+    public static void ForceForeground(IntPtr hwnd)
+    {
+        Input.InputSender.TapMaskKey(); // counts as our input, which allows SetForegroundWindow
+        if (SetForegroundWindow(hwnd)) return;
+
+        var fg = GetForegroundWindow();
+        uint fgThread = GetWindowThreadProcessId(fg, out _);
+        uint me = GetCurrentThreadId();
+        AttachThreadInput(me, fgThread, true);
+        BringWindowToTop(hwnd);
+        SetForegroundWindow(hwnd);
+        AttachThreadInput(me, fgThread, false);
+    }
+
+    public static string? ForegroundProcessName()
+    {
+        try
+        {
+            GetWindowThreadProcessId(GetForegroundWindow(), out uint pid);
+            if (pid == 0) return null;
+            using var p = System.Diagnostics.Process.GetProcessById((int)pid);
+            return p.ProcessName + ".exe";
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

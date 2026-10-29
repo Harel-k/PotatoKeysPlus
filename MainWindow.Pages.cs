@@ -303,33 +303,30 @@ public partial class MainWindow
     FrameworkElement BuildIdeasPage()
     {
         var page = new StackPanel();
-        page.Children.Add(PageHeader("More modules",
-            "Ideas for what Potato Keys+ can do next. These aren't built yet. Pick your favourites and they can become real modules.", null));
+        page.Children.Add(PageHeader("More ideas",
+            "Modules that could come next. These aren't built yet. Pick your favourites and they can become real modules.", null));
 
         (string Name, string Text)[] ideas =
         [
-            ("Grid Jump", "Splits the screen into a lettered grid. Type two letters and the mouse jumps right there. Way faster than arrows."),
-            ("Key Remapper", "Swap or disable any key. Turn Caps Lock into Esc, or fix a broken key by using another one."),
-            ("Text Expander", "Type a short code like ;mail and it turns into your full email or a whole message."),
-            ("Macro Recorder", "Record keys and clicks once, then replay the whole thing with one hotkey."),
-            ("Auto Clicker", "Keyboard-toggled clicker with a clicks-per-second slider."),
-            ("Keystroke Overlay", "Shows the keys you press on screen. Great for tutorials and YouTube recordings."),
-            ("Window Snapper", "Move, resize and snap windows to halves and corners with keys."),
-            ("Layers", "Hold a key like Caps Lock to turn IJKL into arrows, numbers into F-keys and more."),
-            ("Clipboard History", "Keeps the last things you copied. Paste any of them with a hotkey."),
-            ("App Profiles", "Different keybinds per app, like one setup for Minecraft and another for Chrome."),
-            ("Key Stats", "Counts your key presses and shows a heatmap of your keyboard."),
-            ("On-screen Keyboard", "A pinnable keyboard you can type on with the virtual mouse."),
-            ("Gamer Mode", "One switch that blocks the Win key, Alt+Tab and sticky-keys popups while you play."),
-            ("Quick Launcher", "Press a hotkey, type a few letters, hit Enter: open any app, site or file."),
-            ("Turbo Keys", "Hold a key and it repeats as fast as you want, like a turbo button."),
-            ("Panic Key", "One key hides every window, mutes the sound and pauses media."),
-            ("Key Sounds", "Satisfying mechanical keyboard click sounds while you type."),
-            ("Typing Trainer", "Mini typing games and a WPM tracker that learns from your real typing."),
-            ("Snippet Wheel", "Hold a key to pop up a radial menu of your favourite texts and actions."),
-            ("Mouse Jiggler", "Keeps your PC awake and your status green by nudging the mouse."),
-            ("Scroll Lock Mode", "Use Scroll Lock as a switch that turns the whole keyboard into a different layout."),
-            ("Screen Ruler", "Measure pixels and pick colours anywhere on screen, all from the keyboard."),
+            ("Mic Mute Key", "One key mutes your microphone everywhere (Discord, Teams, games), with an on-screen mic icon so you always know."),
+            ("Audio Switcher", "One hotkey flips between headphones and speakers, with no digging in the sound settings."),
+            ("App Volume Keys", "Turn just the app in front up or down. Quiet the game without muting Discord."),
+            ("Pin Any Window", "A hotkey that keeps any window on top, like a guide or a video while you play."),
+            ("Window Snapper", "Move and resize windows to halves, thirds and corners with keys."),
+            ("Clipboard History", "The last 50 things you copied. Search and paste any of them with a hotkey."),
+            ("Text Tools", "Select text, press a key: UPPERCASE, lowercase, Title Case, or paste as plain text."),
+            ("Text Expander", "Type ;mail and it becomes your full email. Type ;addr and get your address."),
+            ("Grid Jump", "The screen turns into a lettered grid. Type two letters and the mouse jumps there, much faster than arrows."),
+            ("Key Remapper", "Swap or switch off any key: Caps Lock to Esc, or fix a broken key."),
+            ("Caps Lock Pop-up", "Shows on screen when Caps Lock / Num Lock turns on, so you stop typing in CAPS by accident."),
+            ("Keyboard Lock", "Locks the keyboard for cleaning (or the cat) until you type a secret combo."),
+            ("Screenshot Tool", "Grab a region with a hotkey, then copy it, save it or blur parts before sharing."),
+            ("Quick Notes", "A hotkey pops up a notepad that saves by itself. Hide it with the same key."),
+            ("Focus Timer", "A Pomodoro timer that blocks distracting apps and sites while it runs."),
+            ("Macro Recorder", "Record keys and clicks once, replay them with one hotkey."),
+            ("App Profiles", "Different keybinds per app: one setup for Minecraft, another for Chrome."),
+            ("Keystroke Overlay", "Shows the keys you press on screen, great for tutorials and recordings."),
+            ("Settings Backup", "Export your hotkeys and settings to a file, or sync them to another PC."),
         ];
 
         var wrap = new WrapPanel();

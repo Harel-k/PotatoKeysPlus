@@ -82,6 +82,13 @@ public static class InputSender
         MouseButton(button, false);
     }
 
+    /// <summary>Relative mouse move (counts as real user activity for idle timers).</summary>
+    public static void MouseMove(int dx, int dy) => Send(new Native.INPUT
+    {
+        type = Native.INPUT_MOUSE,
+        U = new Native.InputUnion { mi = new Native.MOUSEINPUT { dx = dx, dy = dy, dwFlags = 0x0001 } },
+    });
+
     public static void Wheel(int delta) => Send(Mouse(Native.MOUSEEVENTF_WHEEL, delta));
 
     public static void HWheel(int delta) => Send(Mouse(Native.MOUSEEVENTF_HWHEEL, delta));

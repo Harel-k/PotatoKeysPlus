@@ -23,6 +23,9 @@ public sealed class HotkeysModule(HotkeySettings settings, Engine engine)
         return false;
     }
 
+    /// <summary>Runs an action. Also used by the Snippet Wheel, whose items share the hotkey action model.</summary>
+    public void Execute(HotkeyEntry h) => Run(h);
+
     void Run(HotkeyEntry h)
     {
         switch (h.Action)

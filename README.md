@@ -27,6 +27,27 @@ You can change every key. Sliders set the speed, acceleration and scroll speed, 
 ### ⌨️ Hotkeys
 Make shortcuts that work anywhere in Windows. Each one can type text, press other keys, open an app, file or website, control media, click the mouse, toggle mouse mode, or pin the window.
 
+### 🔎 Quick Launcher
+Press **Alt + Space** and type. It opens any Start menu app (Store apps too), websites, files and Potato commands, does quick maths (`=12*7`), and searches the web. Apps you open most rank first.
+
+### 🎯 Snippet Wheel
+Hold **Ctrl + Alt + S** and a round menu of up to 8 actions pops up at your mouse. Pick with 1-8, the arrows or the mouse, then let go. It never steals focus, so typed text lands where you were typing.
+
+### 🎮 Gamer Mode
+Blocks the Windows key, Alt+Tab, optionally Alt+F4, and the Sticky Keys popups. Toggle it with **Ctrl + Alt + G**, or let it switch on by itself when a game (Minecraft, Roblox, ...) is in front.
+
+### 🚨 Panic Key
+**Ctrl + Alt + H** minimizes every window, mutes the PC and pauses music and videos. Press it again and everything comes back.
+
+### 🔊 Key Sounds
+Mechanical keyboard sounds on any keyboard, in 5 packs made from scratch in code (Thock, Clicky, Typewriter, Bubble, Soft), with low-latency mixing.
+
+### ⌨️ Typing Trainer
+Live WPM from your real typing, plus daily stats and a 7-day chart. It only counts keys, never what you type. Typing tests focus on the letters you miss most.
+
+### 🖱️ Mouse Jiggler
+**Ctrl + Alt + J** keeps the PC awake and your Teams/Discord status active, with an invisible 1-pixel nudge. It can run only while you're idle, and stop after a set time.
+
 ### 📌 Always there
 - **Pin** keeps the window on top of everything. **Compact** shrinks it to a mini widget.
 - Lives in the **system tray**, so closing the window keeps your hotkeys working.
@@ -65,7 +86,9 @@ Installed copies check the latest release on startup and every 6 hours. They dow
 | Path | What it is |
 |---|---|
 | `Input/` | Global keyboard hook, key names, input injection |
-| `Modules/` | Keyboard Mouse, Hotkeys, and the `Engine` that routes keys |
+| `Modules/` | Every module, plus the `Engine` that routes keys between them |
+| `Audio/` | Key Sounds synthesizer and mixer (NAudio) |
+| `LauncherWindow.cs`, `SnippetWheelWindow.cs` | Quick Launcher and Snippet Wheel pop-ups |
 | `Services/Updater.cs` | GitHub Releases auto-updater |
 | `Services/Startup.cs` | Start-with-Windows (per-user Run key) |
 | `TrayIcon.cs` | Notification-area icon and menu |

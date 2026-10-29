@@ -2,7 +2,9 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <!-- Runs on Windows 10 1809+; the 19041 SDK is only for the media-session API. -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <!-- Only for the tray icon (NotifyIcon). -->
     <UseWindowsForms>true</UseWindowsForms>
@@ -16,7 +18,7 @@
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
 
     <!-- Bump this for every release; the release script and CI read it. -->
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Product>Potato Keys+</Product>
     <Company>Harel</Company>
     <Authors>Harel</Authors>
@@ -33,6 +35,10 @@
 
   <ItemGroup>
     <Resource Include="Assets\PotatoKeysPlus.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
 </Project>

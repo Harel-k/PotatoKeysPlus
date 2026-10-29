@@ -1,9 +1,11 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using PotatoKeysPlus.Interop;
 using PotatoKeysPlus.Models;
 using PotatoKeysPlus.Modules;
@@ -12,14 +14,20 @@ namespace PotatoKeysPlus;
 
 public partial class MainWindow : Window
 {
+    /// <summary>A sidebar entry. Live = "doing something right now" (gold dot).</summary>
+    sealed record ModuleInfo(string Key, string Glyph, string Name, Func<bool>? Enabled, Func<bool>? Live, Func<FrameworkElement> Build);
+
     readonly Engine _e;
     readonly IndicatorWindow _indicator = new();
+    readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(1.6) };
     readonly Dictionary<string, FrameworkElement> _pages = [];
+    readonly Dictionary<string, Ellipse> _dots = [];
     readonly List<(CheckBox Box, Func<bool> Get)> _switches = [];
     readonly List<Action> _refreshers = [];
+    readonly List<ModuleInfo> _modules;
+    readonly LauncherWindow _launcherWindow;
     bool _syncing;
     bool _quitting;
-    Ellipse? _mouseDot, _hotkeysDot;
     TrayIcon? _tray;
 
     AppSettings S => _e.Settings;
@@ -32,21 +40,50 @@ public partial class MainWindow : Window
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = $"Potato Keys+  v{version?.ToString(3)}";
 
+        _modules =
+        [
+            new("mouse", "", "Keyboard Mouse", () => S.Mouse.Enabled, () => _e.Mouse.Active, BuildMousePage),
+            new("hotkeys", "", "Hotkeys", () => S.Hotkeys.Enabled, null, BuildHotkeysPage),
+            new("launcher", "", "Quick Launcher", () => S.Launcher.Enabled, null, BuildLauncherPage),
+            new("snippets", "", "Snippet Wheel", () => S.Snippets.Enabled, null, BuildSnippetsPage),
+            new("gamer", "", "Gamer Mode", () => S.Gamer.Enabled, () => _e.Gamer.Active, BuildGamerPage),
+            new("panic", "", "Panic Key", () => S.Panic.Enabled, () => _e.Panic.Panicked, BuildPanicPage),
+            new("sounds", "", "Key Sounds", () => S.Sounds.Enabled, null, BuildSoundsPage),
+            new("typing", "", "Typing Trainer", () => S.Typing.Enabled, null, BuildTypingPage),
+            new("jiggler", "", "Mouse Jiggler", () => S.Jiggler.Enabled, () => _e.Jiggler.Running, BuildJigglerPage),
+            new("ideas", "", "More ideas", null, null, BuildIdeasPage),
+            new("about", "", "Settings & updates", null, null, BuildAboutPage),
+        ];
+
+        _launcherWindow = new LauncherWindow(_e.Launcher);
+        _e.Launcher.OpenRequested += _launcherWindow.Open;
+        _e.Snippets.View = new SnippetWheelWindow(_e.Snippets);
+        AddLauncherCommands();
+
         BuildModuleList();
         BuildCompactView();
         ApplySavedBounds();
         SetPinned(S.Pinned, save: false);
 
         _e.Mouse.ActiveChanged += _ => RefreshStatus();
+        _e.Gamer.Changed += () => { RefreshStatus(); Toast(_e.Gamer.Active ? "Gamer Mode on" : "Gamer Mode off"); };
+        _e.Jiggler.Changed += RefreshStatus;
+        _e.Panic.Changed += RefreshStatus;
         _e.PinToggleRequested += () => SetPinned(!S.Pinned);
         _e.Error += message => MessageBox.Show(this, message, "Potato Keys+", MessageBoxButton.OK, MessageBoxImage.Warning);
 
         _tray = new TrayIcon(
             open: ShowFromTray,
-            toggleMouse: () => _e.Mouse.SetActive(!_e.Mouse.Active),
-            togglePin: () => SetPinned(!S.Pinned),
             checkUpdates: () => { ShowFromTray(); SelectModule("about"); _ = CheckForUpdatesAsync(userInitiated: true); },
             quit: QuitApp);
+        _tray.AddAction("Quick Launcher", _launcherWindow.Open);
+        _tray.AddToggle("Mouse mode", () => _e.Mouse.Active, () => _e.Mouse.SetActive(!_e.Mouse.Active));
+        _tray.AddToggle("Gamer Mode", () => _e.Gamer.Active, () => _e.Gamer.SetActive(!_e.Gamer.Active));
+        _tray.AddToggle("Mouse Jiggler", () => _e.Jiggler.Running, () => _e.Jiggler.SetRunning(!_e.Jiggler.Running));
+        _tray.AddToggle("Key Sounds", () => S.Sounds.Enabled, () => { S.Sounds.Enabled = !S.Sounds.Enabled; _e.Sounds.Apply(); Changed(); });
+        _tray.AddToggle("Pin window on top", () => S.Pinned, () => SetPinned(!S.Pinned));
+
+        _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); RefreshIndicator(); };
 
         SourceInitialized += (_, _) => RoundCorners();
         Loaded += (_, _) => { if (S.Compact) SetCompact(true, save: false); };
@@ -54,12 +91,25 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _indicator.Close();
+            _launcherWindow.Close();
             _tray?.Dispose();
         };
 
         SelectModule(S.SelectedModule);
         RefreshStatus();
         StartUpdateChecks();
+    }
+
+    void AddLauncherCommands()
+    {
+        var c = _e.Launcher.Commands;
+        c.Add(("Mouse mode", "Potato Keys+ · move the mouse with your keys", () => _e.Mouse.SetActive(!_e.Mouse.Active)));
+        c.Add(("Gamer Mode", "Potato Keys+ · block Win / Alt+Tab", () => _e.Gamer.SetActive(!_e.Gamer.Active)));
+        c.Add(("Mouse Jiggler", "Potato Keys+ · keep the PC awake", () => _e.Jiggler.SetRunning(!_e.Jiggler.Running)));
+        c.Add(("Key Sounds", "Potato Keys+ · keyboard click sounds", () => { S.Sounds.Enabled = !S.Sounds.Enabled; _e.Sounds.Apply(); Changed(); }));
+        c.Add(("Typing test", "Potato Keys+ · check your speed", () => { ShowFromTray(); SelectModule("typing"); }));
+        c.Add(("Potato Keys+ settings", "Open the Potato Keys+ window", () => { ShowFromTray(); SelectModule("about"); }));
+        c.Add(("Lock PC", "Windows · lock the computer", () => Native.LockWorkStation()));
     }
 
     void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -95,13 +145,14 @@ public partial class MainWindow : Window
 
     void BuildModuleList()
     {
-        ModuleList.Items.Add(ModuleItem("mouse", "", "Keyboard Mouse", out _mouseDot));
-        ModuleList.Items.Add(ModuleItem("hotkeys", "", "Hotkeys", out _hotkeysDot));
-        ModuleList.Items.Add(ModuleItem("ideas", "", "More modules", out var ideasDot));
-        ideasDot.Visibility = Visibility.Collapsed;
-        ModuleList.Items.Add(ModuleItem("about", "", "Settings & updates", out _updateDot));
+        foreach (var m in _modules)
+        {
+            ModuleList.Items.Add(ModuleItem(m.Key, m.Glyph, m.Name, out var dot));
+            _dots[m.Key] = dot;
+            if (m.Enabled == null) dot.Visibility = Visibility.Collapsed;
+        }
+        _updateDot = _dots["about"];
         _updateDot.Fill = Res("AccentBrush");
-        _updateDot.Visibility = Visibility.Collapsed;
     }
 
     ListBoxItem ModuleItem(string key, string glyph, string name, out Ellipse dot)
@@ -113,7 +164,7 @@ public partial class MainWindow : Window
         Place(grid, icon, 0);
         Place(grid, label, 1);
         Place(grid, dot, 2);
-        return new ListBoxItem { Style = St("ModuleItem"), Tag = key, Content = grid, Padding = new Thickness(12, 9, 12, 9), Margin = new Thickness(0, 0, 0, 2) };
+        return new ListBoxItem { Style = St("ModuleItem"), Tag = key, Content = grid, Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 0, 0, 2) };
     }
 
     void SelectModule(string key)
@@ -128,13 +179,7 @@ public partial class MainWindow : Window
         if (ModuleList.SelectedItem is not ListBoxItem { Tag: string key }) return;
         if (!_pages.TryGetValue(key, out var page))
         {
-            page = key switch
-            {
-                "hotkeys" => BuildHotkeysPage(),
-                "ideas" => BuildIdeasPage(),
-                "about" => BuildAboutPage(),
-                _ => BuildMousePage(),
-            };
+            page = (_modules.FirstOrDefault(m => m.Key == key) ?? _modules[0]).Build();
             _pages[key] = page;
             RefreshStatus();
         }
@@ -169,21 +214,30 @@ public partial class MainWindow : Window
         {
             bool on = _e.Mouse.Active;
             title.Text = !S.Mouse.Enabled ? "Keyboard Mouse is off" : on ? "Mouse mode: ON" : "Mouse mode: off";
-            hint.Text = S.Mouse.Enabled ? $"Press {S.Mouse.Toggle} or click here" : "Turn it on below";
+            hint.Text = S.Mouse.Enabled ? $"Press {S.Mouse.Toggle} or click here" : "Turn it on in the full window";
             big.Background = Res(on ? "AccentDimBrush" : "CardBrush");
             big.BorderBrush = Res(on ? "AccentBrush" : "CardBorderBrush");
             title.Foreground = Res(on ? "AccentBrush" : "TextBrush");
         });
-
         CompactPanel.Children.Add(big);
 
-        var mouseRow = Switch("Keyboard Mouse", () => S.Mouse.Enabled, v => { S.Mouse.Enabled = v; if (!v) _e.Mouse.SetActive(false); });
-        mouseRow.Margin = new Thickness(2, 14, 0, 0);
-        CompactPanel.Children.Add(mouseRow);
+        // Quick switches for the things you flip most.
+        var quick = new UniformGrid { Columns = 2, Margin = new Thickness(2, 14, 0, 0) };
+        void Add(CheckBox box)
+        {
+            box.Margin = new Thickness(0, 0, 0, 10);
+            quick.Children.Add(box);
+        }
+        Add(Switch("Gamer Mode", () => _e.Gamer.Active, v => _e.Gamer.SetActive(v)));
+        Add(Switch("Jiggler", () => _e.Jiggler.Running, v => _e.Jiggler.SetRunning(v)));
+        Add(Switch("Key Sounds", () => S.Sounds.Enabled, v => { S.Sounds.Enabled = v; _e.Sounds.Apply(); }));
+        Add(Switch("Hotkeys", () => S.Hotkeys.Enabled, v => S.Hotkeys.Enabled = v));
+        CompactPanel.Children.Add(quick);
 
-        var hotkeysRow = Switch("Hotkeys", () => S.Hotkeys.Enabled, v => S.Hotkeys.Enabled = v);
-        hotkeysRow.Margin = new Thickness(2, 10, 0, 0);
-        CompactPanel.Children.Add(hotkeysRow);
+        var launch = new Button { Style = St("GhostButton"), Content = $"Quick Launcher  ({S.Launcher.Hotkey})", HorizontalAlignment = HorizontalAlignment.Stretch };
+        launch.Click += (_, _) => _launcherWindow.Open();
+        _refreshers.Add(() => launch.Content = $"Quick Launcher  ({S.Launcher.Hotkey})");
+        CompactPanel.Children.Add(launch);
     }
 
     // ---------- Status ----------
@@ -196,16 +250,38 @@ public partial class MainWindow : Window
 
         foreach (var refresh in _refreshers) refresh();
 
-        bool on = _e.Mouse.Active;
-        if (_mouseDot != null) _mouseDot.Fill = Res(!S.Mouse.Enabled ? "RaisedBrush" : on ? "AccentBrush" : "GoodBrush");
-        if (_hotkeysDot != null) _hotkeysDot.Fill = Res(S.Hotkeys.Enabled ? "GoodBrush" : "RaisedBrush");
-        MouseModePill.Visibility = on && !S.Compact ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var m in _modules)
+        {
+            if (m.Enabled == null) continue;
+            bool enabled = m.Enabled(), live = m.Live?.Invoke() == true;
+            _dots[m.Key].Fill = Res(!enabled ? "RaisedBrush" : live ? "AccentBrush" : "GoodBrush");
+        }
 
-        if (on && S.Mouse.ShowIndicator) _indicator.ShowText($"Mouse mode on  ·  {S.Mouse.Toggle} to stop");
-        else if (_indicator.IsVisible) _indicator.Hide();
+        var states = new List<string>();
+        if (_e.Mouse.Active) states.Add("MOUSE MODE");
+        if (_e.Gamer.Active) states.Add("GAMER MODE");
+        if (_e.Jiggler.Running) states.Add("JIGGLING");
+        StatusPillText.Text = string.Join("  ·  ", states);
+        MouseModePill.Visibility = states.Count > 0 && !S.Compact ? Visibility.Visible : Visibility.Collapsed;
 
-        _tray?.SetState(on, S.Pinned);
+        RefreshIndicator();
+        _tray?.Refresh(states.Count > 0 ? "Potato Keys+ (" + string.Join(", ", states).ToLowerInvariant() + ")" : "Potato Keys+");
         RefreshUpdateBanner();
+    }
+
+    void RefreshIndicator()
+    {
+        if (_e.Mouse.Active && S.Mouse.ShowIndicator) _indicator.ShowText($"Mouse mode on  ·  {S.Mouse.Toggle} to stop");
+        else if (!_toastTimer.IsEnabled && _indicator.IsVisible) _indicator.Hide();
+    }
+
+    /// <summary>Brief on-screen message, e.g. when a hotkey switches Gamer Mode.</summary>
+    void Toast(string text)
+    {
+        if (_e.Mouse.Active) return;
+        _indicator.ShowText(text);
+        _toastTimer.Stop();
+        _toastTimer.Start();
     }
 
     void Changed()
