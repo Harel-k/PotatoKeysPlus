@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon (NotifyIcon). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PotatoKeysPlus</AssemblyName>
+    <RootNamespace>PotatoKeysPlus</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\PotatoKeysPlus.ico</ApplicationIcon>
+    <!-- DPI awareness is set in app.manifest for WPF; this WinForms hint doesn't apply. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+
+    <!-- Bump this for every release; the release script and CI read it. -->
+    <Version>0.2.0</Version>
+    <Product>Potato Keys+</Product>
+    <Company>Harel</Company>
+    <Authors>Harel</Authors>
+    <Copyright>Copyright © 2026 Harel</Copyright>
+    <Description>Keyboard and hotkey superpowers for Windows.</Description>
+    <RepositoryUrl>https://github.com/Harel-k/PotatoKeysPlus</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms is only used by TrayIcon.cs; keep its names out of the WPF code. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\PotatoKeysPlus.ico" />
+  </ItemGroup>
+
+</Project>

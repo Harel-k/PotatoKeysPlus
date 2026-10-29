@@ -1,0 +1,42 @@
+name: Release
+
+# Push a tag like v0.3.0 (matching <Version> in the .csproj) to build the installer
+# and publish a GitHub release. Installed copies pick it up through the auto-updater.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Check tag matches project version
+        shell: pwsh
+        run: |
+          [xml]$xml = Get-Content PotatoKeysPlus.csproj
+          $version = @($xml.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ })[0]
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} doesn't match csproj version $version" }
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = Get-ChildItem dist/PotatoKeysPlus-Setup-*.exe | Select-Object -First 1
+          gh release create "${{ github.ref_name }}" $setup.FullName "$($setup.FullName).sha256" --title "Potato Keys+ ${{ github.ref_name }}" --generate-notes
