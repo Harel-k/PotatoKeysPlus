@@ -1,7 +1,8 @@
 name: Release
 
-# Push a tag like v0.3.0 (matching <Version> in the .csproj) to build the installer
+# Push a tag like v0.4.0 (matching <Version> in the .csproj) to build the installer
 # and publish a GitHub release. Installed copies pick it up through the auto-updater.
+# If the release was already published by hand (tools/build-release.ps1 -Publish), this does nothing.
 on:
   push:
     tags: ["v*"]
@@ -10,7 +11,24 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      exists: ${{ steps.exists.outputs.found }}
+    steps:
+      - id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
